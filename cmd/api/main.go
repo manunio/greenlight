@@ -36,7 +36,8 @@ func main() {
 
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "development|staging|production")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgresql://localhost:5431/greenlight", "PostgreSQL DSN")
+	// TODO: / NOTE: don't hard-code dsn, and pass it via flag
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://greenlight:pa55word@localhost:5431/greenlight?sslmode=disable", "PostgreSQL DSN")
 
 	flag.Parse()
 
