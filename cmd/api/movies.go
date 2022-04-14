@@ -16,7 +16,8 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		Genres  []string     `json:"genres"`
 	}
 
-	if err := app.readJSON(w, r, &input); err != nil {
+	err := app.readJSON(w, r, &input)
+	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -39,12 +40,20 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+	err = app.models.Movies.Insert(movie)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	_, _ = fmt.Fprintf(w, "%v\n", input)
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", movie.ID))
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"movie": movie}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
 }
 
 func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/manunio/greenlight/internal/data"
 	"log"
 	"net/http"
 	"os"
@@ -32,6 +33,7 @@ type config struct {
 type application struct {
 	config config
 	logger *log.Logger
+	models data.Models
 }
 
 func main() {
@@ -72,17 +74,19 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	srv := http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      app.routes(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  time.Minute,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 
 	logger.Printf("starting %s server on %d", cfg.env, cfg.port)
+
 	err = srv.ListenAndServe()
 	logger.Fatal(err)
 }
