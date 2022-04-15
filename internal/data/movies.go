@@ -152,3 +152,58 @@ func (m MovieModel) Delete(id int64) error {
 
 	return nil
 }
+
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) (movies []*Movie, err error) {
+	// This SQL query is designed so that each of the filters behaves like it is ‘optional’. For example,
+	// the condition (LOWER(title) = LOWER($1) OR $1 = '') will evaluate as true if the placeholder parameter
+	// $1 is a case-insensitive match for the movie title or the placeholder parameter equals ''.
+	// So this filter condition will essentially be ‘skipped’ when movie title being searched for is the empty string "".
+	// The (genres @> $2 OR $2 = '{}') condition works in the same way. The @> symbol is the ‘contains’ operator for PostgreSQL
+	// arrays, and this condition will return true if all values in the placeholder parameter $2 are contained in the database
+	// genres field or the placeholder parameter contains an empty array.
+	query := `
+		SELECT id, created_at, title, year, runtime, genres, version
+		FROM movies
+		WHERE (LOWER(title) = LOWER($1) OR $1 = '')
+		AND (genres @> $2 OR $2 = '{}')
+		ORDER BY id`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = rows.Close()
+	}()
+
+	movies = []*Movie{}
+
+	for rows.Next() {
+		var movie Movie
+
+		err := rows.Scan(
+			&movie.ID,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		movies = append(movies, &movie)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return movies, nil
+}
