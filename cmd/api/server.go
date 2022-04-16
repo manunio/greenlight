@@ -79,6 +79,8 @@ func (app *application) serve() error {
 		return err
 	}
 
+	// At this point we know that the graceful shutdown completed successfully and we
+	// log a "stopped server" message.
 	app.logger.PrintInfo("stopped server", map[string]string{
 		"addr": srv.Addr,
 	})
