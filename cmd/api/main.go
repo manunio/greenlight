@@ -4,11 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
 	"github.com/manunio/greenlight/internal/data"
 	"github.com/manunio/greenlight/internal/jsonlog"
-	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -91,25 +88,10 @@ func main() {
 		models: data.NewModels(db),
 	}
 
-	srv := http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		// Create a new Go log.logger with the log.New() function, passing in
-		// our custom logger as the first parameter. The "" and 0 indicate that the
-		// log.Logger instance should not use a prefix or any flags.
-		ErrorLog: log.New(logger, "", 0),
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
 	}
-
-	logger.PrintInfo("starting server", map[string]string{
-		"addr": srv.Addr,
-		"env":  cfg.env,
-	})
-
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
 }
 
 // openDB returns a sql.DB connection pool.
