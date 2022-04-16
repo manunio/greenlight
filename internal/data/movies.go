@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/lib/pq"
 	"github.com/manunio/greenlight/internal/validator"
 	"time"
@@ -153,9 +154,8 @@ func (m MovieModel) Delete(id int64) error {
 	return nil
 }
 
-func (m MovieModel) GetAll(title string, genres []string, filters Filters) (movies []*Movie, err error) {
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) (movies []*Movie, metadata Metadata, err error) {
 
-	// That looks pretty complicated at first glance, so let’s break it down and explain what’s going on.
 	// 	The to_tsvector('simple', title) function takes a movie title and splits it into lexemes. We specify
 	// 	the simple configuration, which means that the lexemes are just lowercase versions of the words in the
 	// 	title†. For example, the movie title "The Breakfast Club" would be split into the lexemes 'breakfast' 'club' 'the'.
@@ -167,31 +167,45 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) (movi
 	// contain both lexemes 'the' and 'club'.
 
 	// Use full-text search for the title filter.
-	query := `
-		SELECT id, created_at, title, year, runtime, genres, version
+
+	// Add an ORDER BY clause and interpolate the sort column and direction. Importantly
+	// notice that we also include a secondary sort on the movie ID to ensure a
+	// consistent ordering.
+
+	// The LIMIT clause allows you to set the maximum number of records that a SQL
+	// query should return, and OFFSET allows you to ‘skip’ a specific number of
+	// rows before starting to return records from the query.
+
+	query := fmt.Sprintf(`
+		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
 		FROM movies
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
 		AND (genres @> $2 OR $2 = '{}')
-		ORDER BY id`
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres))
+	args := []interface{}{title, pq.Array(genres), filters.limit(), filters.offset()}
+
+	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
 	defer func() {
 		err = rows.Close()
 	}()
 
+	totalRecords := 0
 	movies = []*Movie{}
 
 	for rows.Next() {
 		var movie Movie
 
 		err := rows.Scan(
+			&totalRecords,
 			&movie.ID,
 			&movie.CreatedAt,
 			&movie.Title,
@@ -201,15 +215,17 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) (movi
 			&movie.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 
 		movies = append(movies, &movie)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
-	return movies, nil
+	metadata = calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	return movies, metadata, nil
 }
