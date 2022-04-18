@@ -1,7 +1,8 @@
 {{define "subject"}} Welcome to Greenlight!{{end}}
 
-{{define "plainbody"}}
-    Hi,
+{{define "plainBody"}}
+    {{/* TODO: check why this is not rendered in mail (Note: it's getting rendered in text/ raw section of mailtrap service)   */}}
+    Hi {{.Name}},
 
     Thanks for signing up for a Greenlight account. We're excited to have you on board.
 

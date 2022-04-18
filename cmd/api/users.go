@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"github.com/manunio/greenlight/internal/data"
 	"github.com/manunio/greenlight/internal/validator"
 	"net/http"
@@ -39,7 +41,13 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.models.Users.Insert(user)
+	tx, err := app.models.Users.DB.BeginTx(context.Background(), nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Users.Insert(tx, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrDuplicateEmail):
@@ -51,7 +59,40 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusCreated, envelope{"user": user}, nil)
+	go func() {
+		// Run a deferred function which uses recover() to catch any panic, and log an
+		// error message instead of terminating the application.
+		defer func() {
+			if err := recover(); err != nil {
+				app.logger.PrintError(fmt.Errorf("%s", err), nil)
+			}
+		}()
+
+		err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
+		if err != nil {
+			app.logger.PrintError(err, nil)
+		}
+	}()
+
+	// TODO: better handling of transaction
+	defer func() {
+		if err != nil {
+			// rollbacks transaction
+			if rbErr := tx.Rollback(); rbErr != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
+			return
+		}
+
+		// commits transaction
+		if err = tx.Commit(); err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}()
+
+	err = app.writeJSON(w, http.StatusAccepted, envelope{"user": user}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}

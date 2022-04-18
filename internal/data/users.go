@@ -17,7 +17,7 @@ type UserModel struct {
 	DB *sql.DB
 }
 
-func (m UserModel) Insert(user *User) error {
+func (m UserModel) Insert(tx *sql.Tx, user *User) error {
 	query := `
         INSERT INTO users (name, email, password_hash, activated) 
         VALUES ($1, $2, $3, $4)
@@ -28,13 +28,17 @@ func (m UserModel) Insert(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
+	err := tx.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
 
 	if err != nil {
 		switch {
 		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
 			return ErrDuplicateEmail
 		default:
+			if rbErr := tx.Rollback(); rbErr != nil {
+				return err
+			}
+
 			return err
 		}
 	}
