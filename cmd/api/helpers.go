@@ -153,11 +153,14 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 }
 
 func (app *application) background(fn func()) {
+	app.wg.Add(1)
 	// goroutine which runs an anonymous function that sends the welcome email.
 	go func() {
 		// Run a deferred function which uses recover() to catch any panic, and log an
 		// error message instead of terminating the application.
 		defer func() {
+			app.wg.Done()
+
 			if err := recover(); err != nil {
 				app.logger.PrintError(fmt.Errorf("%s", err), nil)
 			}

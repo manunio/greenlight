@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/manunio/greenlight/internal/data"
 	"github.com/manunio/greenlight/internal/validator"
 	"net/http"
@@ -59,20 +58,14 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	go func() {
-		// Run a deferred function which uses recover() to catch any panic, and log an
-		// error message instead of terminating the application.
-		defer func() {
-			if err := recover(); err != nil {
-				app.logger.PrintError(fmt.Errorf("%s", err), nil)
-			}
-		}()
-
+	// Use the background helper to execute an anonymous function that sends the welcome
+	// email.
+	app.background(func() {
 		err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
 		if err != nil {
 			app.logger.PrintError(err, nil)
 		}
-	}()
+	})
 
 	// TODO: better handling of transaction
 	defer func() {
