@@ -6,6 +6,7 @@ import (
 	"github.com/manunio/greenlight/internal/data"
 	"github.com/manunio/greenlight/internal/validator"
 	"net/http"
+	"time"
 )
 
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,10 +59,27 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// After the user record has been created in the database, generate a new activation
+	// token for the user.
+	token, err := app.models.Tokens.New(tx, user.ID, 3*24*time.Hour, data.ScopActivation)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 	// Use the background helper to execute an anonymous function that sends the welcome
 	// email.
 	app.background(func() {
-		err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
+
+		// create a map to act as a 'holding structure' for the data. This
+		// contains the plaintext version of the activation token for the
+		// user, along with their ID.
+		mailData := map[string]interface{}{
+			"activationToken": token.Plaintext,
+			"userID":          user.ID,
+		}
+
+		err = app.mailer.Send(user.Email, "user_welcome.tmpl", mailData)
 		if err != nil {
 			app.logger.PrintError(err, nil)
 		}

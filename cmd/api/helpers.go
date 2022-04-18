@@ -152,9 +152,10 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 	return i
 }
 
+// background method runs a goroutine as an anonymous function which runs passed fn func(),
+// which also recovers any unhandled panic in defer block of anonymous func.
 func (app *application) background(fn func()) {
 	app.wg.Add(1)
-	// goroutine which runs an anonymous function that sends the welcome email.
 	go func() {
 		// Run a deferred function which uses recover() to catch any panic, and log an
 		// error message instead of terminating the application.
