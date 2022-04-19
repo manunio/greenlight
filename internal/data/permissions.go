@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// permissions
+const (
+	MoviesRead  = "movies:read"
+	MoviesWrite = "movies:write"
+)
+
 // Permissions slice, which we will use to will hold the permission codes (like
 // "movies:read" and "movies:write") for a single user.
 type Permissions []string

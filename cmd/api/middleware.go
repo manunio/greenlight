@@ -214,6 +214,7 @@ func (app *application) requireActivatedUser(next http.HandlerFunc) http.Handler
 	return app.requireAuthenticatedUser(fn)
 }
 
+// requirePermission checks if user has received (code)  permission or not.
 func (app *application) requirePermission(code string, next http.HandlerFunc) http.HandlerFunc {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		// Retrieve the user from the request context.
