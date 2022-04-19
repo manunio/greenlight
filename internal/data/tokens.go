@@ -97,7 +97,7 @@ func (m TokenModel) Insert(tx *sql.Tx, token *Token) error {
 }
 
 // DeleteAllForUser() deletes all tokens for a specific user and scope.
-func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
+func (m TokenModel) DeleteAllForUser(tx *sql.Tx, scope string, userID int64) error {
 	query := `
         DELETE FROM tokens 
         WHERE scope = $1 AND user_id = $2`
@@ -105,6 +105,6 @@ func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := m.DB.ExecContext(ctx, query, scope, userID)
+	_, err := tx.ExecContext(ctx, query, scope, userID)
 	return err
 }
