@@ -11,15 +11,16 @@ import (
 )
 
 const (
-	ScopActivation = "activation"
+	ScopeActivation     = "activation"
+	ScopeAuthentication = "authentication"
 )
 
 type Token struct {
-	Plaintext string
-	Hash      []byte
-	UserID    int64
-	Expiry    time.Time
-	Scope     string
+	Plaintext string    `json:"token"`
+	Hash      []byte    `json:"-"`
+	UserID    int64     `json:"-"`
+	Expiry    time.Time `json:"expiry"`
+	Scope     string    `json:"-"`
 }
 
 func generateToken(userID int64, ttl time.Duration, scope string) (*Token, error) {
@@ -91,8 +92,12 @@ func (m TokenModel) Insert(tx *sql.Tx, token *Token) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, args...)
+	var err error
+	if tx != nil {
+		_, err = tx.ExecContext(ctx, query, args...)
+	} else {
+		_, err = m.DB.ExecContext(ctx, query, args...)
+	}
 	return err
 }
 

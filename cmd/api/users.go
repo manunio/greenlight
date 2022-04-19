@@ -61,7 +61,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 
 	// After the user record has been created in the database, generate a new activation
 	// token for the user.
-	token, err := app.models.Tokens.New(tx, user.ID, 3*24*time.Hour, data.ScopActivation)
+	token, err := app.models.Tokens.New(tx, user.ID, 3*24*time.Hour, data.ScopeActivation)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -156,7 +156,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 	// Retrieve the details of the user associated with the token using the
 	// GetForToken() method. If no matching record
 	// is found, then we let the client know that the token they provided is not valid.
-	user, err := app.models.Users.GetForToken(tx, data.ScopActivation, input.TokenPlaintext)
+	user, err := app.models.Users.GetForToken(tx, data.ScopeActivation, input.TokenPlaintext)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -186,7 +186,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 
 	// If everything went successfully, then we delete all activation tokens for the
 	// user.
-	err = app.models.Tokens.DeleteAllForUser(tx, data.ScopActivation, user.ID)
+	err = app.models.Tokens.DeleteAllForUser(tx, data.ScopeActivation, user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

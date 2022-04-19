@@ -116,7 +116,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 	return nil
 }
 
-func (app application) readString(qs url.Values, key string, defaultValue string) string {
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
 	s := qs.Get(key)
 
 	if s == "" {

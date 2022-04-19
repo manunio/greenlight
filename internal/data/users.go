@@ -139,7 +139,15 @@ func (m UserModel) GetForToken(tx *sql.Tx, tokenScope, tokenPlaintext string) (*
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := tx.QueryRowContext(ctx, query, args...).Scan(
+	var row *sql.Row
+
+	if tx != nil {
+		row = tx.QueryRowContext(ctx, query, args...)
+	} else {
+		row = m.DB.QueryRowContext(ctx, query, args...)
+	}
+
+	err := row.Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.Name,
@@ -161,6 +169,8 @@ func (m UserModel) GetForToken(tx *sql.Tx, tokenScope, tokenPlaintext string) (*
 	return &user, nil
 }
 
+var AnonymousUser = &User{}
+
 type User struct {
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -169,6 +179,10 @@ type User struct {
 	Password  password  `json:"-"`
 	Activated bool      `json:"activated"`
 	Version   int       `json:"-"`
+}
+
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
 }
 
 type password struct {
